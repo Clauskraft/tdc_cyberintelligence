@@ -1,0 +1,5 @@
+apscheduler
+streamlit
+requests
+fastapi
+uvicorn[standard]
