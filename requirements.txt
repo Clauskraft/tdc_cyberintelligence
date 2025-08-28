@@ -3,3 +3,4 @@ streamlit
 requests
 fastapi
 uvicorn[standard]
+google-cloud-bigquery
