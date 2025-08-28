@@ -1,63 +1,113 @@
-# TDC Cyberintelligence System
+# TDC Erhverv – Cyber Intelligence Platform
 
-En åben og modulær cloud-baseret trusselsintelligensplatform, designet til at detektere og analysere danske cyberhændelser med hjælp fra eksterne datakilder. Platformen er containeriseret og kan køre på Cloud Run, Vertex AI eller lokalt.
+Dette repository indeholder en modulær, cloud‑klar trusselsinformationsplatform, der kombinerer OSINT, teknisk threat intelligence og forretningskritiske analyser målrettet danske virksomheder.
 
-## Funktionalitet
-- Realtidsovervågning af væsentlige danske cyberhændelser.
-- Integrerer data fra MISP, OTX, Shodan, HIBP m.m., samt OSINT-tools som SpiderFoot, LeakLooker-X og Oblivion.
-- Analyselag med korrelationsanalyse, risikoscore og reguleringsanalyse.
-- Produktionsklar REST API (FastAPI) med endpoint til dataindsamling/rapportering og health check.
-- Streamlit‑dashboard til visning af rapporter og Mobile‑App med dashboard‑visning.
+## 🐍 Funktioner
 
-## Installation
+- **Indsamling af IOCs** fra MISP, OTX, Shodan, Have I Been Pwned (HIBP) og andre kilder via et plugin‑baseret arkitektur.
+- **Realtidsanalyse og berigelse** af trusselsdata gennem korrelation og risikoscore.
+- **Executive briefings** med KPI’er og sektorspecifikke anbefalinger.
+- **Cloud‑klar backend** (FastAPI) kompatibel med Google Cloud Run og BigQuery.
+- **Mobilapp og dashboard** (Streamlit) klar til integration.
 
-Projektet kræver Python 3.11+ og pip. Clone repoet og installer afhængigheder:
+## 📋 Arkitektur
 
-```bash
-python3 -m venv venv && source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+```
+Data Sources → Collectors → Analyzers → Briefing Engine → Renderers → API (FastAPI)
 ```
 
-## Lokal kørsel
+1. **Data Sources**: Plugin‑moduler henter IoC’er og trusselsdata fra eksterne feeds som MISP, OTX og egne OSINT‑værktøjer.
+2. **Collectors**: `IOCCollector` samler og deduplikerer data på tværs af kilder.
+3. **Analyzers**: Moduler som `CorrelationAnalyzer` og `RiskScoringAnalyzer` beriger data og beregner risikoniveau.
+4. **Briefing Engine**: Genererer strukturerede intel‑dokumenter og executive briefings.
+5. **Renderers**: Konverterer rapporter til markdown eller HTML; Streamlit viser dem som dashboards.
+6. **API**: FastAPI‑baseret service eksponerer endpoints til indsamling, analyse og hentning af rapporter.
 
-Kør FastAPI serveren med Uvicorn på port 8000:
+## 🚀 Deployment på Google Cloud Run
 
-```bash
-uvicorn tdc_cyberintelligence.api:app --host 0.0.0.0 --port 8000
+1. **Forbered miljø**
+   ```bash
+   # Log ind i Google Cloud
+   gcloud auth login
+   gcloud config set project <YOUR_PROJECT_ID>
+   ```
+2. **Byg containeren**
+   ```bash
+   # Kør fra projektets rodmappe
+   gcloud builds submit --tag gcr.io/<YOUR_PROJECT_ID>/tdc-cyberintelligence .
+   ```
+3. **Deploy til Cloud Run**
+   ```bash
+   gcloud run deploy tdc-cyberintelligence \
+     --image gcr.io/<YOUR_PROJECT_ID>/tdc-cyberintelligence \
+     --region europe-north1 \
+     --allow-unauthenticated \
+     --set-env-vars MISP_URL=<url>,MISP_KEY=<key>,OTX_KEY=<key>,SHODAN_KEY=<key>,HIBP_KEY=<key>
+   ```
+   Efter deploy får du en URL (f.eks. `https://tdc-cyberintelligence-xxxx-ew.a.run.app`). Endpoints:
+   - `GET /health` → `{"status": "ok"}` for at teste tjenesten.
+   - `POST /collect-and-analyze` → Trigger datainhentning og analyse.
+   - `GET /reports/latest` → Hent seneste intel‑rapport som JSON.
+
+4. **Scheduler (valgfrit)**
+   Opret et Cloud Scheduler‑job via Google Cloud Console til at sende POST‑requests til `/collect-and-analyze` i det ønskede interval (f.eks. dagligt).
+
+## 📊 BigQuery‑integration
+
+Plattformen kan eksportere analyseresultater til BigQuery for videre analyse og dashboarding.
+
+1. **Opret dataset** (erstatter `<YOUR_PROJECT_ID>` med dit projektnavn):
+   ```bash
+   bq mk --dataset --location=europe-north1 <YOUR_PROJECT_ID>:tdc_intel
+   ```
+2. **Opret tabel** til trusselsindikatorer:
+   ```bash
+   bq mk --table \
+   --schema indicator:STRING,type:STRING,source:STRING,confidence:STRING,timestamp:TIMESTAMP \
+   <YOUR_PROJECT_ID>:tdc_intel.threat_indicators
+   ```
+   Du kan også definere skemaet i en JSON-fil (se `bigquery_schema.json`) og bruge `--schema=bigquery_schema.json`.
+
+3. **Indsæt data**
+   Tilføj kode i dine analysemoduler til at gemme IoC’er i BigQuery via `google-cloud-bigquery`‑klienten eller kør `bq insert`.
+
+## 📱 Mobilapp og dashboard
+
+- **Streamlit Dashboard**: Kør lokalt med `streamlit run tdc_cyberintelligence/dashboard/streamlit_app.py` eller deploy til Cloud Run. Dashboardet viser rapporter og grafer.
+- **Android‑app**: Appen henter JSON‑rapporter fra `/reports/latest` og viser dem. WebView indlæser Streamlit‑dashboardet. Tilpas URL’er i `DashboardActivity.kt` til din Cloud Run‑instans.
+
+## 📂 Projektsstruktur
+
+```
+tdc_cyberintelligence/
+├── api.py                  # FastAPI‑service
+├── requirements.txt        # Python‑afhængigheder
+├── Dockerfile              # Containerdefinition
+├── collectors/
+│   ├── __init__.py
+│   ├── base_collector.py
+│   └── ioc_collector.py
+├── analyzers/
+│   ├── __init__.py
+│   ├── base_analyzer.py
+│   ├── correlation_analyzer.py
+│   ├── risk_scoring_analyzer.py
+│   └── regulatory_analyzer.py
+├── sources/                # Kildemoduler (MISP, OTX, osv.)
+├── briefing/
+│   ├── __init__.py
+│   ├── intel_reporter.py
+│   ├── executive_briefing.py
+│   └── markdown_renderer.py
+├── dashboard/              # Streamlit‑app
+│   └── streamlit_app.py
+├── scheduler/              # Scheduler-scripts
+│   └── scheduler.py
+└── webhooks/               # Notifiers (Slack, Teams)
+    ├── slack_notifier.py
+    └── teams_notifier.py
 ```
 
-Start Streamlit‑dashboardet i en anden terminal:
+## 🔒 Licens og ansvar
 
-```bash
-streamlit run tdc_cyberintelligence/dashboard/streamlit_app.py
-```
-
-## Cloud Run deployment
-
-Byg og upload containeren til Google Cloud Build og deploy den til Cloud Run:
-
-```bash
-gcloud builds submit --tag gcr.io/<PROJECT_ID>/tdc-cyberintelligence
-
-gcloud run deploy tdc-cyberintelligence \
-  --image gcr.io/<PROJECT_ID>/tdc-cyberintelligence \
-  --platform managed \
-  --region europe-north1 \
-  --allow-unauthenticated \
-  --set-env-vars MISP_URL=...,MISP_KEY=...,OTX_KEY=...,SHODAN_KEY=...,HIBP_KEY=...
-```
-
-## API Endpoints
-
-- `GET /health` – Returnerer `{"status": "ok"}` hvis tjenesten er oppe.
-- `POST /collect-and-analyze` – Indsamler data fra alle kilder, analyserer dem og genererer en rapport. Rapporten gemmes i mappen `reports/` og returneres som JSON.
-- `GET /reports/latest` – Returnerer den senest genererede rapport i JSON-format.
-
-## Mobilapp og Dashboard
-
-Mobilappen henter rapporter fra `/reports/latest` og kan åbne Streamlit‑dashboardet via en WebView. Dashboardet viser et interaktivt overblik over hændelser og IOCs med grafer og tabeller.
-
-## License
-
-Dette projekt er open source (MIT) og kan frit videreudvikles. Husk at overholde licenserne for de eksterne værktøjer og feeds.
+Dette projekt bruger open source‑komponenter (MISP, OTX m.fl.) under deres respektive licenser. Anvendelse af data fra dark web, leaks og andre kilder skal ske i henhold til gældende lovgivning og virksomhedens sikkerhedspolitikker.
