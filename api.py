@@ -1,4 +1,4 @@
-"""
+
 Simple FastAPI application to expose parts of the cyber‑intelligence system.
 
 Endpoints:
@@ -74,7 +74,19 @@ def collect_and_analyze():
     output = reporter.generate(data)
     reports_dir = Path(os.environ.get("REPORTS_DIR", "reports"))
     reports_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+   
+        # Write indicators to BigQuery if environment variables are set
+    bq_project = os.environ.get("BQ_PROJECT")
+    bq_dataset = os.environ.get("BQ_DATASET")
+    bq_table = os.environ.get("BQ_TABLE")
+    if bq_project and bq_dataset and bq_table:
+        try:
+            bq_writer = BigQueryWriter(bq_project, bq_dataset, bq_table)
+            bq_writer.write_indicators(data)
+        except Exception:
+            # Ignore BigQuery errors to avoid failing the entire request
+            pass
+timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     path = reports_dir / f"intel_report_{timestamp}.json"
     path.write_text(output)
     return JSONResponse(content=json.loads(output))
