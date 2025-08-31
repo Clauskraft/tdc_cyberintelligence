@@ -50,7 +50,7 @@ def collect_and_analyze():
         try:
             instance = None
             if src_cls.name == "misp":
-                instance = src_cls(api_url=os.environ.get("MISP_URL", ""), api_key=os.environ.get("MISP_KEY", ""))
+             instance = src_cls()
             elif src_cls.name == "otx":
                 instance = src_cls(api_key=os.environ.get("OTX_KEY", ""))
             elif src_cls.name == "shodan":
