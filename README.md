@@ -1,4 +1,5 @@
 # TDC Erhverv – Cyber Intelligence Platform
+[![Test Pipeline](https://github.com/tdc_cyberintelligence/tdc_cyberintelligence/actions/workflows/tests.yml/badge.svg)](https://github.com/tdc_cyberintelligence/tdc_cyberintelligence/actions/workflows/tests.yml)
 
 Dette repository indeholder en modulær, cloud‑klar trusselsinformationsplatform, der kombinerer OSINT, teknisk threat intelligence og forretningskritiske analyser målrettet danske virksomheder.
 
@@ -38,13 +39,25 @@ Data Sources → Collectors → Analyzers → Briefing Engine → Renderers → 
    ```
 3. Deploy til Cloud Run:
    ```bash
-   gcloud run deploy tdc-cyberintelligence \
-     --image gcr.io/<YOUR_PROJECT_ID>/tdc-cyberintelligence \
-     --region <REGION> \
-     --allow-unauthenticated \
-     --set-env-vars OTX_KEY=<key>,SHODAN_KEY=<key>,HIBP_KEY=<key>,BQ_PROJECT=<YOUR_PROJECT_ID>,BQ_DATASET=tdc_intel,BQ_TABLE=threat_indicators
-   ```
+  gcloud run deploy tdc-cyberintelligence \
+    --image gcr.io/<YOUR_PROJECT_ID>/tdc-cyberintelligence \
+    --region <REGION> \
+    --allow-unauthenticated \
+    --set-secrets OTX_KEY=OTX_KEY:latest,SHODAN_KEY=SHODAN_KEY:latest,HIBP_KEY=HIBP_KEY:latest \
+    --set-env-vars BQ_PROJECT=<YOUR_PROJECT_ID>,BQ_DATASET=tdc_intel,BQ_TABLE=threat_indicators
+  ```
 Note: Udelad variabler for datakilder, du ikke bruger.
+
+## 🔐 Secret Manager
+
+Opret secrets i Google Secret Manager, så API-nøgler ikke hardcodes i deployment:
+
+```bash
+gcloud secrets create OTX_KEY --replication-policy="automatic"
+echo -n "<OTX_KEY>" | gcloud secrets versions add OTX_KEY --data-file=-
+```
+
+Gentag for `SHODAN_KEY` og `HIBP_KEY`, og brug derefter `--set-secrets` som vist ovenfor under deployment.
 ## 📊 BigQuery-integration
 
 1. Opret dataset:
